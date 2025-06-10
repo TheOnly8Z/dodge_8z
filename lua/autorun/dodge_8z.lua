@@ -29,6 +29,7 @@ local cvar_slide_invuln_chance = CreateConVar("8z_dodge_slide_invuln_chance", "0
 
 local cvar_hud = CreateConVar("8z_dodge_hud", "1", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Allow clients to use the dodge HUD. If disabled, clients cannot see the HUD even if they turn it on.", 0, 1)
 
+local cvar_timescale = GetConVar("host_timescale")
 
 hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
     if not cvar_enable:GetBool() then return end
@@ -85,7 +86,7 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
             ply:SetNW2Float("Dodge8Z_Next", CurTime() + cvar_slide_duration:GetFloat() * (1 + cvar_sprint_boost:GetFloat()) + 0.1)
             ply:SetNW2Float("Dodge8Z_Slide", CurTime() + cvar_slide_duration:GetFloat() * (1 + cvar_sprint_boost:GetFloat()))
 
-            ply:SetNW2Float("Dodge8Z_SlideSpeed", math.max(ply:GetWalkSpeed(), ply:GetNW2Vector("Dodge8Z_Dir"):Dot(ply:GetVelocity())) * (1 + cvar_sprint_boost:GetFloat()) * 66 / (1 / FrameTime()))
+            ply:SetNW2Float("Dodge8Z_SlideSpeed", math.max(ply:GetWalkSpeed(), ply:GetNW2Vector("Dodge8Z_Dir"):Dot(ply:GetVelocity())) * (1 + cvar_sprint_boost:GetFloat()) * 66 / (1 / FrameTime()) * game.GetTimeScale() * cvar_timescale:GetFloat())
             ply:SetNW2Int("Dodge8Z_Count", ply:GetNW2Int("Dodge8Z_Count", 0) + 1)
             if SERVER and cvar_slide_sound:GetBool() then
                 ply.Dodge8Z_SlideSound = CreateSound(ply, "physics/body/body_medium_scrape_smooth_loop1.wav")
@@ -142,7 +143,7 @@ hook.Add("Move", "dodge_8z", function(ply, mv)
             return
         end
 
-        local speed = cvar_speed:GetFloat() * 66 / (1 / FrameTime())
+        local speed = cvar_speed:GetFloat() * 66 / (1 / FrameTime()) * game.GetTimeScale() * cvar_timescale:GetFloat()
         if cvar_sprint:GetBool() and ply:KeyDown(IN_SPEED) then
             speed = speed * (1 + cvar_sprint_boost:GetFloat())
         end
