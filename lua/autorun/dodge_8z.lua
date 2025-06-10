@@ -31,22 +31,35 @@ local cvar_hud = CreateConVar("8z_dodge_hud", "1", FCVAR_ARCHIVE + FCVAR_REPLICA
 
 local cvar_timescale = GetConVar("host_timescale")
 
+local function allow_dodge(ply)
+    return hook.Run("Dodge8Z_AllowDodge", ply) or cvar_enable:GetBool()
+end
+
+local function allow_slide(ply)
+    return hook.Run("Dodge8Z_AllowSlide", ply) or cvar_slide:GetBool()
+end
+
+local function get_dodge_limit(ply)
+    return hook.Run("Dodge8Z_GetDodgeLimit", ply) or cvar_limit:GetInt()
+end
+
 hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
-    if not cvar_enable:GetBool() then return end
 
     if ply:Alive() and ply:OnGround() and ply:GetMoveType() == MOVETYPE_WALK
             and ply:GetNW2Float("Dodge8Z_Next", 0) <= CurTime()
             and ply:GetNW2Float("Dodge8Z_Slide", 0) <= CurTime() then
 
+        local limit = get_dodge_limit(ply)
+
         -- Start a dodge
-        if cvar_enable:GetBool() and not ply:Crouching()
+        if allow_dodge(ply) and not ply:Crouching()
                 and cmd:KeyDown(IN_JUMP) and not ply:GetNW2Bool("Dodge8Z_BlockJump", false)
                 and (cvar_sprint:GetBool() or not cmd:KeyDown(IN_SPEED))
                 and (cvar_forwardstrafe:GetInt() ~= 0 or cmd:GetForwardMove() <= 0)
                 and (cmd:GetForwardMove() < 0 or cmd:GetSideMove() ~= 0) then
 
             -- If a dodge is inputted while fully out of dodges, jump is still blocked
-            if (cvar_limit:GetInt() == 0 or ply:GetNW2Int("Dodge8Z_Count", 0) < cvar_limit:GetInt() * 2) then
+            if (limit == 0 or ply:GetNW2Int("Dodge8Z_Count", 0) < limit * 2) then
                 -- Not hard-coding IN_ enums for movement keys for controllers' sake
                 local fmove = cmd:GetForwardMove()
                 if cvar_forwardstrafe:GetInt() == 1 then
@@ -57,14 +70,14 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
                     ply:SetNW2Float("Dodge8Z_Active", CurTime() + cvar_duration:GetFloat())
                     ply:SetNW2Float("Dodge8Z_Next", CurTime() + math.max(cvar_duration:GetFloat(), cvar_cooldown:GetFloat()))
                     ply:SetNW2Int("Dodge8Z_Count", ply:GetNW2Int("Dodge8Z_Count", 0) + 1)
-                    if cvar_limit:GetInt() == 0 or ply:GetNW2Int("Dodge8Z_Count", 0) <= cvar_limit:GetInt() then
+                    if limit == 0 or ply:GetNW2Int("Dodge8Z_Count", 0) <= limit then
                         ply:SetNW2Float("Dodge8Z_Invuln", CurTime() + cvar_duration:GetFloat() + cvar_invuln_grace:GetFloat())
                     end
                     if ply:GetInfoNum("cl_8z_dodge_viewpunch", 1) == 1 then
                         ply:ViewPunch(Angle(math.Clamp(cmd:GetForwardMove(), -1, 0) * 1, 0, math.Clamp(cmd:GetSideMove(), -1, 1) * 1))
                     end
                     if SERVER and cvar_sound:GetBool() then
-                        ply:EmitSound("player/suit_sprint.wav", 70, cvar_limit:GetInt() == 0 and 100 or Lerp(ply:GetNW2Int("Dodge8Z_Count", 0)  / (cvar_limit:GetInt() * 2), 100, 90), 1, CHAN_AUTO)
+                        ply:EmitSound("player/suit_sprint.wav", 70, limit == 0 and 100 or Lerp(ply:GetNW2Int("Dodge8Z_Count", 0)  / (limit * 2), 100, 90), 1, CHAN_AUTO)
                     end
                 end
             elseif IsFirstTimePredicted() then
@@ -79,9 +92,9 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
             mv:SetButtons(bit.band(mv:GetButtons(), bit.bnot(IN_JUMP)))
 
         -- Sprint into slide
-        elseif cvar_slide:GetBool() and cvar_slide_fromsprint:GetBool() and cmd:KeyDown(IN_SPEED)
+        elseif allow_slide(ply) and cvar_slide_fromsprint:GetBool() and cmd:KeyDown(IN_SPEED)
                 and (cmd:GetForwardMove() ~= 0 or cmd:GetSideMove() ~= 0) and mv:KeyPressed(IN_DUCK) and ply:GetVelocity():LengthSqr() >= 1000
-                and (cvar_limit:GetInt() == 0 or ply:GetNW2Int("Dodge8Z_Count", 0) < cvar_limit:GetInt() * 2) then
+                and (limit == 0 or ply:GetNW2Int("Dodge8Z_Count", 0) < limit * 2) then
             ply:SetNW2Vector("Dodge8Z_Dir", (ply:GetForward() * cmd:GetForwardMove() + ply:GetRight() * cmd:GetSideMove()):GetNormalized())
             ply:SetNW2Float("Dodge8Z_Next", CurTime() + cvar_slide_duration:GetFloat() * (1 + cvar_sprint_boost:GetFloat()) + 0.1)
             ply:SetNW2Float("Dodge8Z_Slide", CurTime() + cvar_slide_duration:GetFloat() * (1 + cvar_sprint_boost:GetFloat()))
@@ -132,6 +145,7 @@ hook.Add("Move", "dodge_8z", function(ply, mv)
     local active = ply:GetNW2Float("Dodge8Z_Active", 0)
     local slide = ply:GetNW2Float("Dodge8Z_Slide", 0)
     local count = ply:GetNW2Int("Dodge8Z_Count", 0)
+
     if active > CurTime() then
         if not ply:Alive() or not ply:OnGround() or ply:GetMoveType() ~= MOVETYPE_WALK then
             ply:SetNW2Float("Dodge8Z_Active", 0)
@@ -147,7 +161,8 @@ hook.Add("Move", "dodge_8z", function(ply, mv)
         if cvar_sprint:GetBool() and ply:KeyDown(IN_SPEED) then
             speed = speed * (1 + cvar_sprint_boost:GetFloat())
         end
-        local limit = cvar_limit:GetInt()
+
+        local limit = get_dodge_limit(ply)
         if limit > 0 and (count > limit) then
             speed = speed * Lerp((count - limit) / limit, 1, 0.5)
         end
@@ -167,7 +182,7 @@ hook.Add("Move", "dodge_8z", function(ply, mv)
 
         mv:SetVelocity(ply:GetNW2Vector("Dodge8Z_Dir") * Lerp(((slide - CurTime()) / cvar_slide_duration:GetFloat()) ^ 0.5, ply:GetCrouchedWalkSpeed() * ply:GetWalkSpeed(), ply:GetNW2Float("Dodge8Z_SlideSpeed")))
     elseif active > 0 and IsFirstTimePredicted() then
-        if cvar_slide:GetBool() and mv:KeyDown(IN_DUCK) then
+        if allow_slide(ply) and mv:KeyDown(IN_DUCK) then
             ply:SetNW2Float("Dodge8Z_Slide", CurTime() + cvar_slide_duration:GetFloat())
             ply:SetNW2Int("Dodge8Z_Count", count + 1)
             if SERVER and cvar_slide_sound:GetBool() then
