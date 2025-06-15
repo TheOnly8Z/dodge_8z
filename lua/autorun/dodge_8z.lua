@@ -243,6 +243,15 @@ hook.Add("EntityTakeDamage", "dodge_8z", function(ply, dmginfo)
     end
 end)
 
+hook.Add("PlayerInitialSpawn", "dodge_8z", function(ply, transition)
+    ply:SetNW2Float("Dodge8Z_Next", 0)
+    ply:SetNW2Float("Dodge8Z_Slide", 0)
+    ply:SetNW2Float("Dodge8Z_Active", 0)
+    ply:SetNW2Int("Dodge8Z_Count", 0)
+    ply:SetNW2Float("Dodge8Z_Invuln", 0)
+    ply:SetNW2Bool("Dodge8Z_BlockJump", false)
+end)
+
 if CLIENT then
     local ccvar_hud = CreateClientConVar("cl_8z_dodge_hud", "1", true, false, "Enable the dodge HUD. It won't show up if there is no dodge limit.", 0, 1)
     local ccvar_hud_alwayson = CreateClientConVar("cl_8z_dodge_hud_alwayson", "0", true, false, "Make the HUD always visible.", 0)
