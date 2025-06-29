@@ -16,6 +16,7 @@ local cvar_stamina_delay = CreateConVar("8z_dodge_stamina_delay", "0.5", FCVAR_A
 local cvar_stamina_speed = CreateConVar("8z_dodge_stamina_speed", "0.9", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Sprint speed multiplier when out of stamina.", 0, 1)
 local cvar_stamina_regen = CreateConVar("8z_dodge_stamina_regen", "1", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Rate of stamina regen per second.", 0, 1)
 local cvar_stamina_lockout = CreateConVar("8z_dodge_stamina_lockout", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "On fully draining stamina, cannot sprint until one bar of stamina is refilled.", 0, 1)
+local cvar_stamina_sprintjump = CreateConVar("8z_dodge_stamina_sprintjump", "1", FCVAR_ARCHIVE + FCVAR_REPLICATED, "A sprint jump consumes one stamina.", 0, 1)
 
 local cvar_limit = CreateConVar("8z_dodge_limit", "4", FCVAR_ARCHIVE + FCVAR_REPLICATED, "The amount of dodges a player can perform before dodges start losing effectiveness, reducing speed and losing its invulnerability effect. Set to 0 for no limit.", 0)
 local cvar_reset = CreateConVar("8z_dodge_reset", "0.85", FCVAR_ARCHIVE + FCVAR_REPLICATED, "If no dodges are performed within this amount of time, the dodge limit is reset.", 0)
@@ -122,7 +123,7 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
                 mv:SetButtons(bit.band(mv:GetButtons(), bit.bnot(IN_JUMP)))
 
             -- Sprint into slide
-            elseif allow_slide(ply) and cvar_slide_fromsprint:GetBool() and cmd:KeyDown(IN_SPEED)
+            elseif allow_slide(ply) and cvar_slide_fromsprint:GetBool() and ply:IsSprinting()
                     and (cmd:GetForwardMove() ~= 0 or cmd:GetSideMove() ~= 0) and mv:KeyPressed(IN_DUCK) and ply:GetVelocity():LengthSqr() >= 1000
                     and (limit == 0 or ply:GetNW2Int("Dodge8Z_Count", 0) < limit * 2) then
                 ply:SetNW2Vector("Dodge8Z_Dir", (ply:GetForward() * cmd:GetForwardMove() + ply:GetRight() * cmd:GetSideMove()):GetNormalized())
@@ -169,6 +170,13 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
         -- Forced crouch while dodge sliding
         mv:SetButtons(bit.bor(mv:GetButtons(), IN_DUCK))
         mv:SetButtons(bit.band(mv:GetButtons(), bit.bnot(IN_JUMP)))
+    end
+
+    if ply:IsOnGround() and mv:KeyDown(IN_JUMP) and ply:IsSprinting() and cvar_stamina_sprintjump:GetBool() and IsFirstTimePredicted() then
+        ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, ply:GetNW2Float("Dodge8Z_Stamina", 0) - 1))
+        if ply:GetNW2Float("Dodge8Z_Stamina") <= 0 then
+            ply:SetNW2Bool("Dodge8Z_StaminaLockout", true)
+        end
     end
 
     -- Dodge reset
@@ -254,13 +262,13 @@ end)
 hook.Add("PlayerPostThink", "dodge_8z", function(ply)
     local max_stamina = get_max_stamina(ply)
 
-    if ply:Alive() and ply:GetMoveType() == MOVETYPE_WALK and cvar_stamina:GetBool() then
+    if ply:Alive() and ply:GetMoveType() == MOVETYPE_WALK and ply:IsOnGround() and cvar_stamina:GetBool() then
         if ply:GetNW2Float("Dodge8Z_Stamina", 0) < max_stamina and ply:GetNW2Float("Dodge8Z_LastSprint", 0) + get_stamina_delay(ply) < CurTime() then
             ply:SetNW2Float("Dodge8Z_Stamina", math.min(max_stamina, ply:GetNW2Float("Dodge8Z_Stamina") + get_stamina_regen(ply) * FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
             if ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) and ply:GetNW2Float("Dodge8Z_Stamina") >= 1 then
                 ply:SetNW2Bool("Dodge8Z_StaminaLockout", false)
             end
-        elseif ply:IsSprinting() and ply:IsOnGround() and ply:GetVelocity():Length2D() >= ply:GetSlowWalkSpeed() then
+        elseif ply:IsSprinting() and ply:GetVelocity():Length2D() >= ply:GetSlowWalkSpeed() then
             ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, ply:GetNW2Float("Dodge8Z_Stamina") - FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
             if ply:GetNW2Float("Dodge8Z_Stamina") <= 0 and cvar_stamina_lockout:GetBool() then
                 ply:SetNW2Bool("Dodge8Z_StaminaLockout", true)
