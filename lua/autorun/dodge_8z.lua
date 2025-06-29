@@ -612,7 +612,7 @@ if CLIENT then
             local t = panel:Help("#dodge_8z.category.stamina")
             t:SetFont("DermaDefaultBold")
 
-            panel:ControlHelp("#dodge_8z.help.dodge")
+            panel:ControlHelp("#dodge_8z.help.stamina")
 
             panel:CheckBox("#dodge_8z.enable", "8z_dodge_stamina")
             panel:NumSlider("#dodge_8z.cvar.stamina_max", "8z_dodge_stamina_max", 1, 10, 0)
