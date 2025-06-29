@@ -437,6 +437,10 @@ if CLIENT then
                 surface.SetDrawColor(Lerp(d, DODGE_8Z_COLORS.empty.r, DODGE_8Z_COLORS.bar.r), Lerp(d, DODGE_8Z_COLORS.empty.g, DODGE_8Z_COLORS.bar.g), Lerp(d, DODGE_8Z_COLORS.empty.b, DODGE_8Z_COLORS.bar.b), Lerp(d, DODGE_8Z_COLORS.empty.a, DODGE_8Z_COLORS.bar.a))
             elseif bars < 0 and bars + total <= (total - i) then
                 surface.SetDrawColor(DODGE_8Z_COLORS.missing)
+            elseif bars < 0 and bars + total < (total - i + 1) then
+                local d = bars - math.floor(bars)
+                surface.SetDrawColor(Lerp(d, DODGE_8Z_COLORS.missing.r, DODGE_8Z_COLORS.bar.r), Lerp(d, DODGE_8Z_COLORS.missing.g, DODGE_8Z_COLORS.bar.g), Lerp(d, DODGE_8Z_COLORS.missing.b, DODGE_8Z_COLORS.bar.b), Lerp(d, DODGE_8Z_COLORS.missing.a, DODGE_8Z_COLORS.bar.a))
+
             else
                 surface.SetDrawColor(DODGE_8Z_COLORS.empty)
             end
@@ -478,6 +482,9 @@ if CLIENT then
     local function draw_stamina_bar(x, y, w, h)
         local s, smax = LocalPlayer():GetNW2Float("Dodge8Z_Stamina", 0), get_max_stamina(LocalPlayer())
         local pct = math.Round(s / smax * 100) .. "%"
+        if LocalPlayer():GetNW2Bool("Dodge8Z_StaminaLockout") then
+            s = s - 1
+        end
         draw_bars(x, y, w, h, s, smax)
 
         surface.SetFont("TargetID")
@@ -491,7 +498,7 @@ if CLIENT then
         end
         surface.DrawText(txt)
 
-        if LocalPlayer():GetNW2Bool("Dodge8Z_StaminaLockout") or s <= 0 then
+        if LocalPlayer():GetNW2Bool("Dodge8Z_StaminaLockout") then
             surface.SetTextColor(DODGE_8Z_COLORS.missing)
         end
         if ccvar_hud_textpos:GetBool() then
