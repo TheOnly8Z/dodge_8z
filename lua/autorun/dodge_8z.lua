@@ -17,6 +17,7 @@ local cvar_stamina_speed = CreateConVar("8z_dodge_stamina_speed", "0.75", FCVAR_
 local cvar_stamina_regen = CreateConVar("8z_dodge_stamina_regen", "0.9", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Rate of stamina regen per second.", 0, 1)
 local cvar_stamina_lockout = CreateConVar("8z_dodge_stamina_lockout", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "On fully draining stamina, cannot sprint until one bar of stamina is refilled.", 0, 1)
 local cvar_stamina_sprintjump = CreateConVar("8z_dodge_stamina_sprintjump", "1", FCVAR_ARCHIVE + FCVAR_REPLICATED, "A sprint jump consumes one stamina.", 0, 1)
+local cvar_stamina_invuln = CreateConVar("8z_dodge_stamina_invuln", "1", FCVAR_ARCHIVE + FCVAR_REPLICATED, "While sprinting with stamina, become immune to non-player bullet damage (DMG_BULLET, DMG_BUCKSHOT, DMG_SNIPER) shot from the side.", 0, 1)
 
 local cvar_limit = CreateConVar("8z_dodge_limit", "4", FCVAR_ARCHIVE + FCVAR_REPLICATED, "The amount of dodges a player can perform before dodges start losing effectiveness, reducing speed and losing its invulnerability effect. Set to 0 for no limit.", 0)
 local cvar_reset = CreateConVar("8z_dodge_reset", "0.85", FCVAR_ARCHIVE + FCVAR_REPLICATED, "If no dodges are performed within this amount of time, the dodge limit is reset.", 0)
@@ -300,29 +301,39 @@ local dodge_sounds = {
 }
 hook.Add("EntityTakeDamage", "dodge_8z", function(ply, dmginfo)
     if ply:IsPlayer() and ply:GetNW2Float("Dodge8Z_Invuln", 0) > CurTime()
-        and (not IsValid(dmginfo:GetAttacker()) or not dmginfo:GetAttacker():IsPlayer() or cvar_invuln_player:GetBool()) and
-        math.random() < cvar_invuln_chance:GetFloat() and (
-        cvar_invuln_all:GetBool() or
-        (cvar_invuln_melee:GetBool() and (dmginfo:GetDamageType() == 0 or dmginfo:IsDamageType(DMG_CLUB) or dmginfo:IsDamageType(DMG_SLASH))) or
-        (cvar_invuln_bullet:GetBool() and (dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_BUCKSHOT) or dmginfo:IsDamageType(DMG_SNIPER)))
-        ) then
+            and (not IsValid(dmginfo:GetAttacker()) or not dmginfo:GetAttacker():IsPlayer() or cvar_invuln_player:GetBool()) and
+            math.random() < cvar_invuln_chance:GetFloat() and (
+            cvar_invuln_all:GetBool() or
+            (cvar_invuln_melee:GetBool() and (dmginfo:GetDamageType() == 0 or dmginfo:IsDamageType(DMG_CLUB) or dmginfo:IsDamageType(DMG_SLASH))) or
+            (cvar_invuln_bullet:GetBool() and (dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_BUCKSHOT) or dmginfo:IsDamageType(DMG_SNIPER)))
+            ) then
         ply:EmitSound(dodge_sounds[math.random(1, #dodge_sounds)], 70, math.Rand(97, 103), 1, CHAN_AUTO)
         return true
     end
 
     if ply:IsPlayer() and ply:GetNW2Float("Dodge8Z_Slide", 0) > CurTime()
-        and (not IsValid(dmginfo:GetAttacker()) or not dmginfo:GetAttacker():IsPlayer() or cvar_invuln_player:GetBool()) and
-        math.random() < cvar_slide_invuln_chance:GetFloat() and (
-        cvar_slide_invuln_all:GetBool() or
-        (cvar_slide_invuln_melee:GetBool() and (dmginfo:GetDamageType() == 0 or dmginfo:IsDamageType(DMG_CLUB) or dmginfo:IsDamageType(DMG_SLASH))) or
-        (cvar_slide_invuln_bullet:GetBool() and (dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_BUCKSHOT) or dmginfo:IsDamageType(DMG_SNIPER)))
-        ) then
+            and (not IsValid(dmginfo:GetAttacker()) or not dmginfo:GetAttacker():IsPlayer() or cvar_invuln_player:GetBool()) and
+            math.random() < cvar_slide_invuln_chance:GetFloat() and (
+            cvar_slide_invuln_all:GetBool() or
+            (cvar_slide_invuln_melee:GetBool() and (dmginfo:GetDamageType() == 0 or dmginfo:IsDamageType(DMG_CLUB) or dmginfo:IsDamageType(DMG_SLASH))) or
+            (cvar_slide_invuln_bullet:GetBool() and (dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_BUCKSHOT) or dmginfo:IsDamageType(DMG_SNIPER)))
+            ) then
         ply:EmitSound(dodge_sounds[math.random(1, #dodge_sounds)], 70, math.Rand(97, 103), 1, CHAN_AUTO)
         return true
     end
+
+    if cvar_stamina:GetBool() and cvar_stamina_invuln:GetBool() and ply:IsPlayer() and ply:IsSprinting() and ply:IsOnGround()
+            and (not IsValid(dmginfo:GetAttacker()) or not dmginfo:GetAttacker():IsPlayer()) and ply:GetNW2Float("Dodge8Z_Stamina") > 0 and ply:GetVelocity():Length2D() >= ply:GetSlowWalkSpeed()
+            and (dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_BUCKSHOT) or dmginfo:IsDamageType(DMG_SNIPER)) then
+        local dot = dmginfo:GetDamageForce():GetNormalized():Dot(ply:GetForward())
+        if math.abs(dot) <= 0.5 then
+            ply:EmitSound(dodge_sounds[math.random(1, #dodge_sounds)], 70, math.Rand(97, 103), 1, CHAN_AUTO)
+            return true
+        end
+    end
 end)
 
-hook.Add("PlayerInitialSpawn", "dodge_8z", function(ply, transition)
+hook.Add("PlayerSpawn", "dodge_8z", function(ply, transition)
     ply:SetNW2Float("Dodge8Z_Next", 0)
     ply:SetNW2Float("Dodge8Z_Slide", 0)
     ply:SetNW2Float("Dodge8Z_Active", 0)
@@ -332,8 +343,6 @@ hook.Add("PlayerInitialSpawn", "dodge_8z", function(ply, transition)
     ply:SetNW2Float("Dodge8Z_Stamina", get_max_stamina(ply))
     ply:SetNW2Float("Dodge8Z_LastSprint", 0)
     ply:SetNW2Bool("Dodge8Z_StaminaLockout", false)
-
-    --cvar_stamina_lockout
 end)
 
 if CLIENT then
@@ -624,6 +633,8 @@ if CLIENT then
             panel:ControlHelp("#dodge_8z.desc.stamina_lockout")
             panel:CheckBox("#dodge_8z.cvar.stamina_sprintjump", "8z_dodge_stamina_sprintjump")
             panel:ControlHelp("#dodge_8z.desc.stamina_sprintjump")
+            panel:CheckBox("#dodge_8z.cvar.stamina_invuln", "8z_dodge_stamina_invuln")
+            panel:ControlHelp("#dodge_8z.desc.stamina_invuln")
 
             t = panel:Help("#dodge_8z.category.strafe")
             t:SetFont("DermaDefaultBold")
