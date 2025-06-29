@@ -70,12 +70,17 @@ end
 
 hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
 
-    if cvar_strafe_nosprint:GetBool() then
-        if ply:Alive() and cmd:GetForwardMove() < 0 or (cmd:GetForwardMove() <= 0 and cmd:GetSideMove() ~= 0) or ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) then
+    if cvar_strafe_nosprint:GetBool() or ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) then
+        if ply:Alive() and (cmd:GetForwardMove() < 0 or (cmd:GetForwardMove() <= 0 and cmd:GetSideMove() ~= 0) or ply:GetNW2Bool("Dodge8Z_StaminaLockout", false)) then
             ply:SprintDisable()
+            ply.Dodge8Z_SprintDisabled = true
         else
             ply:SprintEnable()
+            ply.Dodge8Z_SprintDisabled = nil
         end
+    elseif not ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) and ply.Dodge8Z_SprintDisabled then
+        ply:SprintEnable()
+        ply.Dodge8Z_SprintDisabled = nil
     end
 
     if ply:Alive() and ply:GetMoveType() == MOVETYPE_WALK then
@@ -172,7 +177,7 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
         mv:SetButtons(bit.band(mv:GetButtons(), bit.bnot(IN_JUMP)))
     end
 
-    if ply:IsOnGround() and mv:KeyDown(IN_JUMP) and ply:IsSprinting() and cvar_stamina_sprintjump:GetBool() and IsFirstTimePredicted() then
+    if ply:IsOnGround() and mv:KeyPressed(IN_JUMP) and ply:IsSprinting() and cvar_stamina_sprintjump:GetBool() and IsFirstTimePredicted() then
         ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, ply:GetNW2Float("Dodge8Z_Stamina", 0) - 1))
         if ply:GetNW2Float("Dodge8Z_Stamina") <= 0 then
             ply:SetNW2Bool("Dodge8Z_StaminaLockout", true)
@@ -614,6 +619,8 @@ if CLIENT then
             panel:ControlHelp("#dodge_8z.desc.stamina_speed")
             panel:CheckBox("#dodge_8z.cvar.stamina_lockout", "8z_dodge_stamina_lockout")
             panel:ControlHelp("#dodge_8z.desc.stamina_lockout")
+            panel:CheckBox("#dodge_8z.cvar.stamina_sprintjump", "8z_dodge_stamina_sprintjump")
+            panel:ControlHelp("#dodge_8z.desc.stamina_sprintjump")
 
             t = panel:Help("#dodge_8z.category.strafe")
             t:SetFont("DermaDefaultBold")
