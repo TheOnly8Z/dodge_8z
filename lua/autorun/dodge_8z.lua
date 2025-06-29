@@ -13,8 +13,8 @@ local cvar_strafe_nosprint = CreateConVar("8z_dodge_strafe_nosprint", "0", FCVAR
 local cvar_stamina = CreateConVar("8z_dodge_stamina", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Enable stamina system to limit sprinting.", 0, 1)
 local cvar_stamina_max = CreateConVar("8z_dodge_stamina_max", "4", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Amount of maximum stamina. One stamina is equal to one second of sprinting.", 0)
 local cvar_stamina_delay = CreateConVar("8z_dodge_stamina_delay", "0.5", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Delay after sprinting stops before stamina starts recovering.", 0)
-local cvar_stamina_speed = CreateConVar("8z_dodge_stamina_speed", "0.9", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Sprint speed multiplier when out of stamina.", 0, 1)
-local cvar_stamina_regen = CreateConVar("8z_dodge_stamina_regen", "1", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Rate of stamina regen per second.", 0, 1)
+local cvar_stamina_speed = CreateConVar("8z_dodge_stamina_speed", "0.75", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Sprint speed multiplier when out of stamina.", 0, 1)
+local cvar_stamina_regen = CreateConVar("8z_dodge_stamina_regen", "0.9", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Rate of stamina regen per second.", 0, 1)
 local cvar_stamina_lockout = CreateConVar("8z_dodge_stamina_lockout", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "On fully draining stamina, cannot sprint until one bar of stamina is refilled.", 0, 1)
 local cvar_stamina_sprintjump = CreateConVar("8z_dodge_stamina_sprintjump", "1", FCVAR_ARCHIVE + FCVAR_REPLICATED, "A sprint jump consumes one stamina.", 0, 1)
 
@@ -70,17 +70,19 @@ end
 
 hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
 
-    if cvar_strafe_nosprint:GetBool() or ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) then
-        if ply:Alive() and (cmd:GetForwardMove() < 0 or (cmd:GetForwardMove() <= 0 and cmd:GetSideMove() ~= 0) or ply:GetNW2Bool("Dodge8Z_StaminaLockout", false)) then
-            ply:SprintDisable()
-            ply.Dodge8Z_SprintDisabled = true
-        else
+    if SERVER then
+        if cvar_strafe_nosprint:GetBool() or ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) then
+            if ply:Alive() and (cmd:GetForwardMove() < 0 or (cmd:GetForwardMove() <= 0 and cmd:GetSideMove() ~= 0) or ply:GetNW2Bool("Dodge8Z_StaminaLockout", false)) then
+                ply:SprintDisable()
+                ply.Dodge8Z_SprintDisabled = true
+            else
+                ply:SprintEnable()
+                ply.Dodge8Z_SprintDisabled = nil
+            end
+        elseif not ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) and ply.Dodge8Z_SprintDisabled then
             ply:SprintEnable()
             ply.Dodge8Z_SprintDisabled = nil
         end
-    elseif not ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) and ply.Dodge8Z_SprintDisabled then
-        ply:SprintEnable()
-        ply.Dodge8Z_SprintDisabled = nil
     end
 
     if ply:Alive() and ply:GetMoveType() == MOVETYPE_WALK then
@@ -177,7 +179,8 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
         mv:SetButtons(bit.band(mv:GetButtons(), bit.bnot(IN_JUMP)))
     end
 
-    if ply:IsOnGround() and mv:KeyPressed(IN_JUMP) and ply:IsSprinting() and cvar_stamina_sprintjump:GetBool() and IsFirstTimePredicted() then
+    -- Sprint jump penalty
+    if cvar_stamina:GetBool() and cvar_stamina_sprintjump:GetBool() and IsFirstTimePredicted() and ply:IsOnGround() and mv:KeyPressed(IN_JUMP) and ply:IsSprinting() then
         ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, ply:GetNW2Float("Dodge8Z_Stamina", 0) - 1))
         if ply:GetNW2Float("Dodge8Z_Stamina") <= 0 then
             ply:SetNW2Bool("Dodge8Z_StaminaLockout", true)
@@ -273,7 +276,7 @@ hook.Add("PlayerPostThink", "dodge_8z", function(ply)
             if ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) and ply:GetNW2Float("Dodge8Z_Stamina") >= 1 then
                 ply:SetNW2Bool("Dodge8Z_StaminaLockout", false)
             end
-        elseif ply:IsSprinting() and ply:GetVelocity():Length2D() >= ply:GetSlowWalkSpeed() then
+        elseif ply:IsSprinting() and ply:GetVelocity():Length2D() >= ply:GetSlowWalkSpeed() and ply:GetNW2Float("Dodge8Z_Active", 0) < CurTime() then
             ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, ply:GetNW2Float("Dodge8Z_Stamina") - FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
             if ply:GetNW2Float("Dodge8Z_Stamina") <= 0 and cvar_stamina_lockout:GetBool() then
                 ply:SetNW2Bool("Dodge8Z_StaminaLockout", true)
@@ -479,7 +482,7 @@ if CLIENT then
         end
         surface.DrawText(txt)
 
-        if ply:GetNW2Bool("Dodge8Z_StaminaLockout") or s <= 0 then
+        if LocalPlayer():GetNW2Bool("Dodge8Z_StaminaLockout") or s <= 0 then
             surface.SetTextColor(DODGE_8Z_COLORS.missing)
         end
         if ccvar_hud_textpos:GetBool() then
@@ -491,9 +494,7 @@ if CLIENT then
         surface.DrawText(pct)
     end
 
-    local last_value = 0
-    local last_value_t = 0
-    local a = 0
+    local last_value, last_value_t, a = 0, 0, 0
     local last_value_s, last_value_s_t, as = 0, 0, 0
     hook.Add("HUDPaint", "dodge_8z", function()
         if not LocalPlayer():Alive() or not cvar_hud:GetBool() or not ccvar_hud:GetBool() then return end
@@ -502,12 +503,13 @@ if CLIENT then
             if last_value ~= LocalPlayer():GetNW2Int("Dodge8Z_Count", 0) then
                 last_value = LocalPlayer():GetNW2Int("Dodge8Z_Count", 0)
                 last_value_t = SysTime()
-                a = 1
             end
 
             local dt = SysTime() - last_value_t
             if last_value == 0 and dt > 1.5 then
                 a = math.Approach(a, 0, RealFrameTime() * 2)
+            else
+                a = math.Approach(a, 1, RealFrameTime() * 7.5)
             end
 
             local am = surface.GetAlphaMultiplier()
@@ -521,12 +523,13 @@ if CLIENT then
             if last_value_s ~= s then
                 last_value_s = s
                 last_value_s_t = SysTime()
-                as = 1
             end
 
             local dt = SysTime() - last_value_s_t
             if last_value_s == smax and dt > 1.5 then
                 as = math.Approach(as, 0, RealFrameTime() * 2)
+            else
+                as = math.Approach(as, 1, RealFrameTime() * 7.5)
             end
 
             local am = surface.GetAlphaMultiplier()
