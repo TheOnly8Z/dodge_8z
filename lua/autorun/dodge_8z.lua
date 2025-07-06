@@ -67,6 +67,9 @@ local function get_stamina_regen(ply)
     return hook.Run("Dodge8Z_GetStaminaRegenRate", ply) or cvar_stamina_regen:GetFloat()
 end
 
+local function get_stamina_drain(ply)
+    return hook.Run("Dodge8Z_GetStaminaDrainRate", ply) or 1
+end
 
 
 hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
@@ -278,7 +281,7 @@ hook.Add("PlayerPostThink", "dodge_8z", function(ply)
                 ply:SetNW2Bool("Dodge8Z_StaminaLockout", false)
             end
         elseif ply:IsSprinting() and ply:GetVelocity():Length2D() >= ply:GetSlowWalkSpeed() and ply:GetNW2Float("Dodge8Z_Active", 0) < CurTime() then
-            ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, ply:GetNW2Float("Dodge8Z_Stamina") - FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
+            ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, ply:GetNW2Float("Dodge8Z_Stamina") - get_stamina_drain(ply) * FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
             if ply:GetNW2Float("Dodge8Z_Stamina") <= 0 and cvar_stamina_lockout:GetBool() then
                 ply:SetNW2Bool("Dodge8Z_StaminaLockout", true)
             end
