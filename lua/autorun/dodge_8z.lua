@@ -536,7 +536,7 @@ if CLIENT then
     end
 
     local function draw_dodge_bar(x, y, w, h)
-        local total = cvar_limit:GetInt()
+        local total = DODGE_8Z:GetDodgeLimit(LocalPlayer())
         local count = LocalPlayer():GetNW2Int("Dodge8Z_Count", 0)
         local bars = total - count
 
@@ -611,7 +611,7 @@ if CLIENT then
     hook.Add("HUDPaint", "dodge_8z", function()
         if not LocalPlayer():Alive() or not cvar_hud:GetBool() or not ccvar_hud:GetBool() then return end
 
-        if cvar_limit:GetInt() > 0 then
+        if DODGE_8Z:GetDodgeLimit(LocalPlayer()) > 0 then
             if last_value ~= LocalPlayer():GetNW2Int("Dodge8Z_Count", 0) then
                 last_value = LocalPlayer():GetNW2Int("Dodge8Z_Count", 0)
                 last_value_t = SysTime()
