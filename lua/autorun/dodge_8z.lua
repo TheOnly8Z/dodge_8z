@@ -88,11 +88,12 @@ end
 function DODGE_8Z:GetMaxStamina(ply)
     local default = cvar_stamina_max:GetInt()
     local ret = hook.Run("Dodge8Z_GetMaxStamina", ply, default)
-    if ret ~= nil then
-        return ret
-    else
-        return default
+    local value = (ret ~= nil) and ret or default
+    if SERVER and value ~= ply.Dodge8Z_LastMaxStamina then
+        ply:SetNW2Float("Dodge8Z_Stamina", value * (ply:GetNW2Float("Dodge8Z_Stamina") / (ply.Dodge8Z_LastMaxStamina or value)))
+        ply.Dodge8Z_LastMaxStamina = value
     end
+    return value
 end
 
 function DODGE_8Z:GetStaminaRegenDelay(ply)
@@ -416,7 +417,9 @@ hook.Add("PlayerSpawn", "dodge_8z", function(ply, transition)
     ply:SetNW2Int("Dodge8Z_Count", 0)
     ply:SetNW2Float("Dodge8Z_Invuln", 0)
     ply:SetNW2Bool("Dodge8Z_BlockJump", false)
-    ply:SetNW2Float("Dodge8Z_Stamina", DODGE_8Z:GetMaxStamina(ply))
+    local stamina = DODGE_8Z:GetMaxStamina(ply)
+    ply:SetNW2Float("Dodge8Z_Stamina", stamina)
+    ply.Dodge8Z_LastMaxStamina = stamina
     ply:SetNW2Float("Dodge8Z_LastSprint", 0)
     ply:SetNW2Bool("Dodge8Z_StaminaLockout", false)
 end)
