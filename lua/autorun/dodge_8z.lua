@@ -112,6 +112,7 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
                         ply:SetNW2Float("Dodge8Z_Active", CurTime() + cvar_duration:GetFloat())
                         ply:SetNW2Float("Dodge8Z_Next", CurTime() + math.max(cvar_duration:GetFloat(), cvar_cooldown:GetFloat()))
                         ply:SetNW2Int("Dodge8Z_Count", ply:GetNW2Int("Dodge8Z_Count", 0) + 1)
+                        ply:SetNW2Float("Dodge8Z_LastSprint", CurTime())
                         if limit == 0 or ply:GetNW2Int("Dodge8Z_Count", 0) <= limit then
                             ply:SetNW2Float("Dodge8Z_Invuln", CurTime() + cvar_duration:GetFloat() + cvar_invuln_grace:GetFloat())
                         end
@@ -140,7 +141,7 @@ hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
                 ply:SetNW2Vector("Dodge8Z_Dir", (ply:GetForward() * cmd:GetForwardMove() + ply:GetRight() * cmd:GetSideMove()):GetNormalized())
                 ply:SetNW2Float("Dodge8Z_Next", CurTime() + cvar_slide_duration:GetFloat() * (1 + cvar_sprint_boost:GetFloat()) + 0.1)
                 ply:SetNW2Float("Dodge8Z_Slide", CurTime() + cvar_slide_duration:GetFloat() * (1 + cvar_sprint_boost:GetFloat()))
-
+                ply:SetNW2Float("Dodge8Z_LastSprint", CurTime())
                 ply:SetNW2Float("Dodge8Z_SlideSpeed", math.max(ply:GetWalkSpeed(), ply:GetNW2Vector("Dodge8Z_Dir"):Dot(ply:GetVelocity())) * (1 + cvar_sprint_boost:GetFloat()) * 66 / (1 / FrameTime()) * game.GetTimeScale() * cvar_timescale:GetFloat())
                 ply:SetNW2Int("Dodge8Z_Count", ply:GetNW2Int("Dodge8Z_Count", 0) + 1)
                 if SERVER and cvar_slide_sound:GetBool() then
@@ -358,6 +359,7 @@ if CLIENT then
     local ccvar_hud_a = CreateClientConVar("cl_8z_dodge_hud_alpha", "1", true, false, "Opaqueness of the HUD element, as a fraction.", 0, 1)
     local ccvar_hud_textpos = CreateClientConVar("cl_8z_dodge_hud_textpos", "0", true, false, "Move the numeric counter to the left and the 'DODGES' text to the right.", 0, 1)
     local ccvar_hud_shadow = CreateClientConVar("cl_8z_dodge_hud_shadow", "1", true, false, "Enable black shadows on the main UI. Does not affect the text", 0, 1)
+    local ccvar_hud_simple = CreateClientConVar("cl_8z_dodge_hud_simple", "0", true, false, "Remove the dodge meter, showing only the dodge count.", 0, 1)
 
     local ccvar_stamina_hud_x = CreateClientConVar("cl_8z_dodge_stamina_hud_x", "0.5", true, false, "Horizontal position of the stamina HUD, as a fraction of screen width.", 0, 1)
     local ccvar_stamina_hud_y = CreateClientConVar("cl_8z_dodge_stamina_hud_y", "0.75", true, false, "Vertical position of the stamina HUD, as a fraction of screen height.", 0, 1)
@@ -456,6 +458,16 @@ if CLIENT then
         local total = cvar_limit:GetInt()
         local count = LocalPlayer():GetNW2Int("Dodge8Z_Count", 0)
         local bars = total - count
+
+        if ccvar_hud_simple:GetBool() then
+            surface.SetFont("TargetID")
+            surface.SetTextColor(bars > 0 and DODGE_8Z_COLORS.main or DODGE_8Z_COLORS.missing)
+            local txt = bars .. "/" .. total
+            local tw = surface.GetTextSize(txt)
+            surface.SetTextPos(x - tw / 2, y + h)
+            surface.DrawText(txt)
+            return
+        end
 
         draw_bars(x, y, w, h, bars, total)
 
