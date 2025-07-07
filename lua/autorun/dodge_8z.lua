@@ -367,7 +367,16 @@ if CLIENT then
     CreateClientConVar("cl_8z_dodge_viewpunch", "1", true, true, "Apply viewpunch when dodging and sliding (camera pitch/tilt).", 0, 1)
     CreateClientConVar("cl_8z_dodge_blockjump", "0", true, true, "Disable sideways/backwards jump to prevent accidently jumping while spamming dodge.", 0, 1)
 
-    local t = 2
+    surface.CreateFont( "Dodge8Z_Large", {
+        font = "Verdana",
+        extended = true,
+        size = 36,
+        weight = 700,
+        antialias = false,
+        shadow = true,
+    })
+
+    local sp = 2
 
     DODGE_8Z_COLORS = {}
     DODGE_8Z_COLORS.main = Color(150, 220, 150, 255)
@@ -423,15 +432,15 @@ if CLIENT then
 
         if ccvar_hud_shadow:GetBool() then
             surface.SetDrawColor(color_black)
-            surface.DrawRect(x - w / 2 - t * 2 + 1, y + h + t * 2, w + t * 4, 1)
-            surface.DrawRect(x - w / 2 - t * 1, y + h / 2 + 1, 1, h / 2 + t - 1)
-            surface.DrawRect(x + w / 2 + t * 2, y + h / 2 + 1, 1, h / 2 + t * 2 - 1)
+            surface.DrawRect(x - w / 2 - sp * 2 + 1, y + h + sp * 2, w + sp * 4, 1)
+            surface.DrawRect(x - w / 2 - sp * 1, y + h / 2 + 1, 1, h / 2 + sp - 1)
+            surface.DrawRect(x + w / 2 + sp * 2, y + h / 2 + 1, 1, h / 2 + sp * 2 - 1)
         end
 
         surface.SetDrawColor(DODGE_8Z_COLORS.main)
-        surface.DrawRect(x - w / 2 - t * 2, y + h + t, w + t * 4, t)
-        surface.DrawRect(x - w / 2 - t * 2, y + h / 2, t, h / 2 + t)
-        surface.DrawRect(x + w / 2 + t, y + h / 2, t, h / 2 + t)
+        surface.DrawRect(x - w / 2 - sp * 2, y + h + sp, w + sp * 4, sp)
+        surface.DrawRect(x - w / 2 - sp * 2, y + h / 2, sp, h / 2 + sp)
+        surface.DrawRect(x + w / 2 + sp, y + h / 2, sp, h / 2 + sp)
 
         local am = surface.GetAlphaMultiplier()
         for i = 1, total do
@@ -449,7 +458,7 @@ if CLIENT then
             else
                 surface.SetDrawColor(DODGE_8Z_COLORS.empty)
             end
-            surface.DrawRect(x - w / 2 + w * (i - 1) / total + t / 2, y, wbar - t, h)
+            surface.DrawRect(x - w / 2 + w * (i - 1) / total + sp / 2, y, wbar - sp, h)
             surface.SetAlphaMultiplier(am)
         end
     end
@@ -460,7 +469,7 @@ if CLIENT then
         local bars = total - count
 
         if ccvar_hud_simple:GetBool() then
-            surface.SetFont("TargetID")
+            surface.SetFont("Dodge8Z_Large")
             surface.SetTextColor(bars > 0 and DODGE_8Z_COLORS.main or DODGE_8Z_COLORS.missing)
             local txt = bars .. "/" .. total
             local tw = surface.GetTextSize(txt)
@@ -476,9 +485,9 @@ if CLIENT then
         local txt = language.GetPhrase("#dodge_8z.ui.dodges")
         if ccvar_hud_textpos:GetBool() then
             local tw = surface.GetTextSize(txt)
-            surface.SetTextPos(x + w / 2 - tw, y + h + t * 2)
+            surface.SetTextPos(x + w / 2 - tw, y + h + sp * 2)
         else
-            surface.SetTextPos(x - w / 2, y + h + t * 2)
+            surface.SetTextPos(x - w / 2, y + h + sp * 2)
         end
             surface.DrawText(txt)
 
@@ -486,10 +495,10 @@ if CLIENT then
             surface.SetTextColor(DODGE_8Z_COLORS.missing)
         end
         if ccvar_hud_textpos:GetBool() then
-            surface.SetTextPos(x - w / 2, y + h + t * 2)
+            surface.SetTextPos(x - w / 2, y + h + sp * 2)
         else
             local tw = surface.GetTextSize(bars)
-            surface.SetTextPos(x + w / 2 - tw, y + h + t * 2)
+            surface.SetTextPos(x + w / 2 - tw, y + h + sp * 2)
         end
         surface.DrawText(bars)
     end
@@ -507,9 +516,9 @@ if CLIENT then
         local txt = language.GetPhrase("#dodge_8z.ui.stamina")
         if ccvar_hud_textpos:GetBool() then
             local tw = surface.GetTextSize(txt)
-            surface.SetTextPos(x + w / 2 - tw, y + h + t * 2)
+            surface.SetTextPos(x + w / 2 - tw, y + h + sp * 2)
         else
-            surface.SetTextPos(x - w / 2, y + h + t * 2)
+            surface.SetTextPos(x - w / 2, y + h + sp * 2)
         end
         surface.DrawText(txt)
 
@@ -517,10 +526,10 @@ if CLIENT then
             surface.SetTextColor(DODGE_8Z_COLORS.missing)
         end
         if ccvar_hud_textpos:GetBool() then
-            surface.SetTextPos(x - w / 2, y + h + t * 2)
+            surface.SetTextPos(x - w / 2, y + h + sp * 2)
         else
             local tw = surface.GetTextSize(pct)
-            surface.SetTextPos(x + w / 2 - tw, y + h + t * 2)
+            surface.SetTextPos(x + w / 2 - tw, y + h + sp * 2)
         end
         surface.DrawText(pct)
     end
@@ -688,6 +697,7 @@ if CLIENT then
 
             t = panel:Help("#dodge_8z.category.hud_dodge")
             t:SetFont("DermaDefaultBold")
+            panel:CheckBox("#dodge_8z.cvar.hud_simple", "cl_8z_dodge_hud_simple")
             panel:NumSlider("#dodge_8z.cvar.hud_x", "cl_8z_dodge_hud_x", 0, 1, 2)
             panel:NumSlider("#dodge_8z.cvar.hud_y", "cl_8z_dodge_hud_y", 0, 1, 2)
 
