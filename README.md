@@ -11,28 +11,39 @@ Dodging and sliding both consume your dodge meter. If you run out, your dodges a
 
 Many details about the addon can be configured in **Utilities -> 8Z's Dodge System**.
 
-## Hooks for Developers
+## Developer Info
 
-You can use hooks to programatically override things on a per-player basis, such as limiting who can dodge and how many dodges they have. All hooks have one parameter, being the player.
+### Functions
 
-As with all hooks in Garry's Mod, returning `nil` or not returning will defer to the default value.
+- `DODGE_8Z:GetStamina(ply)`: Returns the current stamina of the player.
+- `DODGE_8Z:TakeStamina(ply, amount)` Removes `amount` stamina from the player. Returns true if player had enough stamina, and false if not.
+- `DODGE_8Z:GiveStamina(ply, amount)` Gives `amount` stamina to the player.
 
-**Dodge8Z_AllowDodge**: Whether the player can use dodge functionality. This takes priority over the ConVar setting!
+### Hooks
 
-**Dodge8Z_AllowSlide**: Whether the player can use slide functionality. This takes priority over the ConVar setting!
+You can use hooks to programatically override things on a per-player basis, such as limiting who can dodge and how many dodges they have.
 
-**Dodge8Z_GetDodgeLimit**: Return a number to override the dodge limit for the player.
+All hooks provide two arguments, the player entity and the default value. Return a value to override the ConVar setting.
+
+- `Dodge8Z_AllowDodge` (bool)
+- `Dodge8Z_AllowSlide` (bool)
+- `Dodge8Z_GetDodgeSpeed` (float)
+- `Dodge8Z_GetDodgeLimit` (int)
+- `Dodge8Z_GetMaxStamina` (int)
+- `Dodge8Z_GetStaminaRegenDelay` (float)
+- `Dodge8Z_GetStaminaRegenRate` (float)
+- `Dodge8Z_GetStaminaDrainRate` (float)
 
 ```lua
 -- This snippet allows admins to dodge always, while other players can only dodge if 8z_dodge_enabled is set to 1.
-hook.Add("Dodge8Z_AllowDodge", "admins_can_dodge", function(ply)
+hook.Add("Dodge8Z_AllowDodge", "admins_can_dodge", function(ply, default)
     if ply:IsAdmin() then
         return true
     end
 end)
 
 -- Scales the amount of dodges to the player's current health! Please return an integer all the time.
-hook.Add("Dodge8Z_GetDodgeLimit", "admins_infinite_dodge", function(ply)
+hook.Add("Dodge8Z_GetDodgeLimit", "admins_infinite_dodge", function(ply, default)
     return math.ceil(ply:Health() / 25)
 end)
 ```

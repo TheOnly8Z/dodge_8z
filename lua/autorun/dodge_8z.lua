@@ -65,6 +65,16 @@ function DODGE_8Z:IsSlideAllowed(ply)
     end
 end
 
+function DODGE_8Z:GetDodgeSpeed(ply)
+    local default = cvar_speed:GetFloat()
+    local ret = hook.Run("Dodge8Z_GetDodgeSpeed", ply, default)
+    if ret ~= nil then
+        return ret
+    else
+        return default
+    end
+end
+
 function DODGE_8Z:GetDodgeLimit(ply)
     local default = cvar_limit:GetInt()
     local ret = hook.Run("Dodge8Z_GetDodgeLimit", ply, default)
@@ -75,24 +85,8 @@ function DODGE_8Z:GetDodgeLimit(ply)
     end
 end
 
-function DODGE_8Z:GetStamina(ply)
-    return ply:GetNW2Float("Dodge8Z_Stamina", 0)
-end
-
-function DODGE_8Z:TakeStamina(ply, amount)
-    local old = ply:GetNW2Float("Dodge8Z_Stamina", 0)
-    ply:SetNW2Float("Dodge8Z_Stamina", math.max(old - amount, 0))
-    return old >= amount
-end
-
-function DODGE_8Z:GiveStamina(ply, amount)
-    local old = ply:GetNW2Float("Dodge8Z_Stamina", 0)
-    ply:SetNW2Float("Dodge8Z_Stamina", math.min(old + amount, DODGE_8Z:GetMaxStamina(ply)))
-    return old < amount
-end
-
 function DODGE_8Z:GetMaxStamina(ply)
-    local default = ply:GetNW2Float("Dodge8Z_MaxStamina", cvar_stamina_max:GetInt())
+    local default = cvar_stamina_max:GetInt()
     local ret = hook.Run("Dodge8Z_GetMaxStamina", ply, default)
     if ret ~= nil then
         return ret
@@ -129,6 +123,22 @@ function DODGE_8Z:GetStaminaDrainRate(ply)
     else
         return default
     end
+end
+
+function DODGE_8Z:GetStamina(ply)
+    return ply:GetNW2Float("Dodge8Z_Stamina", 0)
+end
+
+function DODGE_8Z:TakeStamina(ply, amount)
+    local old = ply:GetNW2Float("Dodge8Z_Stamina", 0)
+    ply:SetNW2Float("Dodge8Z_Stamina", math.max(old - amount, 0))
+    return old >= amount
+end
+
+function DODGE_8Z:GiveStamina(ply, amount)
+    ply:SetNW2Float("Dodge8Z_Stamina",
+            math.min(ply:GetNW2Float("Dodge8Z_Stamina", 0) + amount,
+            DODGE_8Z:GetMaxStamina(ply)))
 end
 
 hook.Add("SetupMove", "dodge_8z", function(ply, mv, cmd)
@@ -273,7 +283,7 @@ hook.Add("Move", "dodge_8z", function(ply, mv)
             return
         end
 
-        local speed = cvar_speed:GetFloat() * 66 / (1 / FrameTime()) * game.GetTimeScale() * cvar_timescale:GetFloat()
+        local speed = DODGE_8Z:GetDodgeSpeed(ply) * 66 / (1 / FrameTime()) * game.GetTimeScale() * cvar_timescale:GetFloat()
         if cvar_sprint:GetBool() and ply:KeyDown(IN_SPEED) then
             speed = speed * (1 + cvar_sprint_boost:GetFloat())
         end
@@ -283,7 +293,7 @@ hook.Add("Move", "dodge_8z", function(ply, mv)
             speed = speed * Lerp((count - limit) / limit, 1, 0.5)
         end
 
-        mv:SetVelocity(ply:GetNW2Vector("Dodge8Z_Dir") * speed) --Lerp((active - CurTime()) / (cvar_duration:GetFloat() / 2), mv:KeyDown(IN_SPEED) and ply:GetRunSpeed() or ply:GetWalkSpeed(), cvar_speed:GetFloat()))
+        mv:SetVelocity(ply:GetNW2Vector("Dodge8Z_Dir") * speed) --Lerp((active - CurTime()) / (cvar_duration:GetFloat() / 2), mv:KeyDown(IN_SPEED) and ply:GetRunSpeed() or ply:GetWalkSpeed(), DODGE_8Z:GetDodgeSpeed(ply)))
         ply:SetNW2Float("Dodge8Z_SlideSpeed", speed)
     elseif slide > CurTime() then
         if not ply:Alive() or not ply:OnGround() or ply:GetMoveType() ~= MOVETYPE_WALK then
@@ -333,16 +343,19 @@ end)
 
 hook.Add("PlayerPostThink", "dodge_8z", function(ply)
     local max_stamina = DODGE_8Z:GetMaxStamina(ply)
+    local stamina = DODGE_8Z:GetStamina(ply)
 
     if ply:Alive() and ply:GetMoveType() == MOVETYPE_WALK and ply:IsOnGround() and cvar_stamina:GetBool() then
-        if ply:GetNW2Float("Dodge8Z_Stamina", 0) < max_stamina and ply:GetNW2Float("Dodge8Z_LastSprint", 0) + DODGE_8Z:GetStaminaRegenDelay(ply) < CurTime() then
-            ply:SetNW2Float("Dodge8Z_Stamina", math.min(max_stamina, ply:GetNW2Float("Dodge8Z_Stamina") + DODGE_8Z:GetStaminaRegenRate(ply) * FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
+        if stamina > max_stamina then
+            ply:SetNW2Float("Dodge8Z_Stamina", max_stamina)
+        elseif stamina < max_stamina and ply:GetNW2Float("Dodge8Z_LastSprint", 0) + DODGE_8Z:GetStaminaRegenDelay(ply) < CurTime() then
+            ply:SetNW2Float("Dodge8Z_Stamina", math.min(max_stamina, stamina + DODGE_8Z:GetStaminaRegenRate(ply) * FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
             if ply:GetNW2Bool("Dodge8Z_StaminaLockout", false) and ply:GetNW2Float("Dodge8Z_Stamina") >= 1 then
                 ply:SetNW2Bool("Dodge8Z_StaminaLockout", false)
             end
         elseif ply:IsSprinting() and ply:GetVelocity():Length2D() >= ply:GetSlowWalkSpeed() and ply:GetNW2Float("Dodge8Z_Active", 0) < CurTime() then
-            ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, ply:GetNW2Float("Dodge8Z_Stamina") - DODGE_8Z:GetStaminaDrainRate(ply) * FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
-            if ply:GetNW2Float("Dodge8Z_Stamina") <= 0 and cvar_stamina_lockout:GetBool() then
+            ply:SetNW2Float("Dodge8Z_Stamina", math.max(0, stamina - DODGE_8Z:GetStaminaDrainRate(ply) * FrameTime() * game.GetTimeScale() * cvar_timescale:GetFloat()))
+            if stamina <= 0 and cvar_stamina_lockout:GetBool() then
                 ply:SetNW2Bool("Dodge8Z_StaminaLockout", true)
             end
         end
@@ -404,7 +417,6 @@ hook.Add("PlayerSpawn", "dodge_8z", function(ply, transition)
     ply:SetNW2Float("Dodge8Z_Invuln", 0)
     ply:SetNW2Bool("Dodge8Z_BlockJump", false)
     ply:SetNW2Float("Dodge8Z_Stamina", DODGE_8Z:GetMaxStamina(ply))
-    ply:SetNW2Float("Dodge8Z_MaxStamina", cvar_stamina_max:GetInt())
     ply:SetNW2Float("Dodge8Z_LastSprint", 0)
     ply:SetNW2Bool("Dodge8Z_StaminaLockout", false)
 end)
