@@ -545,7 +545,7 @@ if CLIENT then
             surface.SetTextColor(bars > 0 and DODGE_8Z_COLORS.main or DODGE_8Z_COLORS.missing)
             local txt = bars .. "/" .. total
             local tw = surface.GetTextSize(txt)
-            surface.SetTextPos(x - tw / 2, y + h)
+            surface.SetTextPos(x - tw / 2, y)
             surface.DrawText(txt)
             return
         end
